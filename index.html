@@ -33,10 +33,15 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:'DM Sans',sans-seri
 
 /* ══ HINT ══ */
 #hint{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);z-index:300;
-  font-family:'Space Mono',monospace;font-size:9px;color:rgba(200,169,110,0.38);
-  letter-spacing:0.14em;display:flex;align-items:center;gap:10px;}
-.hbar{width:56px;height:1px;background:rgba(200,169,110,0.12);}
-.hfill{height:100%;background:var(--accent);animation:hf 5s linear infinite;}
+  font-family:'Space Mono',monospace;font-size:9px;color:rgba(200,169,110,0.5);
+  letter-spacing:0.12em;display:flex;align-items:center;gap:12px;
+  background:rgba(7,9,16,0.7);padding:8px 18px;border-radius:100px;
+  border:1px solid rgba(200,169,110,0.12);backdrop-filter:blur(10px);
+  transition:all 0.3s;}
+#hint.is-paused{color:var(--accent);border-color:rgba(200,169,110,0.35);background:rgba(7,9,16,0.9);}
+#pause-icon{font-size:11px;transition:all 0.2s;}
+.hbar{width:90px;height:2px;background:rgba(200,169,110,0.12);border-radius:2px;}
+.hfill{height:100%;background:var(--accent);border-radius:2px;animation:hf 10s linear infinite;}
 @keyframes hf{0%{width:0%}100%{width:100%}}
 
 /* ══ SLIDES ══ */
@@ -309,8 +314,9 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:'DM Sans',sans-seri
 </div>
 
 <div id="hint">
-  <span>HOLD TO PAUSE</span>
-  <div class="hbar"><div class="hfill"></div></div>
+  <span id="pause-icon">⏸</span>
+  <span id="hint-text">CLICK TO PAUSE</span>
+  <div class="hbar"><div class="hfill" id="hfill"></div></div>
   <span id="ctr">1 / 6</span>
 </div>
 
@@ -901,7 +907,7 @@ function highlightTag(el){
 /* ══════════════════════════════════
    SLIDE ENGINE
 ══════════════════════════════════ */
-const TOTAL=6,INTERVAL=5200;
+const TOTAL=6,INTERVAL=10000;
 let cur=0,paused=false,autoT=null;
 const LABELS=['Home','Services','Projects','Experience','Skills','Contact'];
 
@@ -922,17 +928,51 @@ function next(){goTo(cur+1<TOTAL?cur+1:0);}
 function startAuto(){clearInterval(autoT);if(!paused)autoT=setInterval(next,INTERVAL);}
 startAuto();
 
-document.addEventListener('mousedown',()=>{paused=true;clearInterval(autoT);});
-document.addEventListener('touchstart',()=>{paused=true;clearInterval(autoT);},{passive:true});
-document.addEventListener('mouseup',()=>{paused=false;startAuto();});
-document.addEventListener('touchend',()=>{paused=false;startAuto();});
+// ── PAUSE TOGGLE: click anywhere to pause/resume ──
+function setPaused(val){
+  paused=val;
+  const hint=document.getElementById('hint');
+  const icon=document.getElementById('pause-icon');
+  const txt=document.getElementById('hint-text');
+  const fill=document.getElementById('hfill');
+  if(paused){
+    clearInterval(autoT);
+    hint.classList.add('is-paused');
+    icon.textContent='▶';
+    txt.textContent='PAUSED — CLICK TO RESUME';
+    fill.style.animationPlayState='paused';
+  } else {
+    startAuto();
+    hint.classList.remove('is-paused');
+    icon.textContent='⏸';
+    txt.textContent='CLICK TO PAUSE';
+    fill.style.animationPlayState='running';
+  }
+}
+
+// Click anywhere on slide to toggle pause (but not on buttons/links/dots)
+document.getElementById('slides').addEventListener('click',e=>{
+  const tag=e.target.tagName.toLowerCase();
+  if(['a','button','input'].includes(tag))return;
+  if(e.target.closest('#dots'))return;
+  if(e.target.closest('.ec-pts'))return;
+  setPaused(!paused);
+});
+
+// Also click hint bar itself
+document.getElementById('hint').addEventListener('click',e=>{
+  e.stopPropagation();
+  setPaused(!paused);
+});
+
+// Touch swipe still works
+document.addEventListener('touchstart',e=>{tx=e.touches[0].clientX;ty=e.touches[0].clientY;},{passive:true});
 document.addEventListener('keydown',e=>{
   if(e.key==='ArrowRight'||e.key==='ArrowDown')next();
   else if(e.key==='ArrowLeft'||e.key==='ArrowUp')goTo(cur-1);
   else if(e.key===' '){paused=!paused;paused?clearInterval(autoT):startAuto();e.preventDefault();}
 });
 let tx=0,ty=0;
-document.addEventListener('touchstart',e=>{tx=e.touches[0].clientX;ty=e.touches[0].clientY;},{passive:true});
 document.addEventListener('touchend',e=>{
   const dx=e.changedTouches[0].clientX-tx,dy=e.changedTouches[0].clientY-ty;
   if(Math.abs(dy)>Math.abs(dx)){dy<-50&&next();dy>50&&goTo(cur-1);}
